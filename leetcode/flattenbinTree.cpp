@@ -11,7 +11,7 @@
  */
  class Solution {
     public:
-        void flatten(TreeNode* root) {
+        void flatten(TreeNode* root) { # In worst case it can be O(n^2) because we are traversing the tree twice.
             if(!root) return;
             flatten(root->left);
             flatten(root->right);
@@ -23,5 +23,20 @@
                 curr = curr->right;
             }
             curr->right = right;
+        }
+    };
+
+# This is a better solution because it is O(n) time complexity and O(1) space complexity.
+ class Solution {
+    public:
+        TreeNode* prev = nullptr;
+        void flatten(TreeNode* root) {
+            if(!root) return;
+            flatten(root->right);
+            flatten(root->left);
+            root->right = prev;
+            root->left = nullptr;
+
+            prev = root;
         }
     };
