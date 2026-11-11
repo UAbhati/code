@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1d2330; --muted: #6b7385;
+    --border: #e3e6ec; --accent: #3a5bff; --mark: #ffe58a;
+    --title-badge: #e6ecff; --title-badge-text: #2a47d6;
+    --body-badge: #eaf6ee; --body-badge-text: #1f7a3d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161b; --card: #1c1f27; --text: #e8eaf0; --muted: #98a0b3;
+      --border: #2b303b; --accent: #7b93ff; --mark: #6b5a12;
+      --title-badge: #25305e; --title-badge-text: #b6c4ff;
+      --body-badge: #1d3a29; --body-badge-text: #9be0b2;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 22px; margin: 0 0 16px; }
+
+  .sticky {
+    position: sticky; top: 0; z-index: 5; background: var(--bg);
+    padding: 8px 0 12px;
+  }
+  .search {
+    width: 100%; padding: 12px 14px; font-size: 16px; color: var(--text);
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    outline: none;
+  }
+  .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .status { margin-top: 8px; font-size: 13px; color: var(--muted); min-height: 20px; }
+
+  details.create {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; margin-bottom: 8px;
+  }
+  details.create summary { cursor: pointer; padding: 10px 14px; font-weight: 600; }
+  form { padding: 0 14px 14px; display: grid; gap: 8px; }
+  form input, form textarea {
+    width: 100%; padding: 9px 10px; font: inherit; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  }
+  form textarea { min-height: 90px; resize: vertical; }
+  form button {
+    justify-self: start; padding: 8px 16px; font: inherit; font-weight: 600;
+    color: #fff; background: var(--accent); border: 0; border-radius: 8px; cursor: pointer;
+  }
+  form button:disabled { opacity: .6; cursor: default; }
+  .error { color: #d33; font-size: 13px; }
+  form .row { display: flex; gap: 8px; }
+  form button.secondary { color: var(--text); background: transparent; border: 1px solid var(--border); }
+  .actions { margin-left: auto; display: flex; gap: 4px; }
+  .actions button {
+    font: inherit; font-size: 12px; color: var(--muted); background: transparent;
+    border: 1px solid var(--border); border-radius: 6px; padding: 1px 8px; cursor: pointer;
+  }
+  .actions button:hover { color: var(--text); border-color: var(--muted); }
+  .actions button.danger:hover { color: #d33; border-color: #d33; }
+
+  #list { display: grid; gap: 10px; transition: opacity .12s; }
+  #list.loading { opacity: .55; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px;
+    /* Skip layout/paint work for cards that are off-screen. */
+    content-visibility: auto; contain-intrinsic-size: auto 110px;
+  }
+  .card h2 { font-size: 16px; margin: 0 0 4px; overflow-wrap: anywhere; }
+  .snippet {
+    margin: 0; color: var(--muted); overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .meta { display: flex; gap: 6px; align-items: center; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .badge { padding: 1px 8px; border-radius: 999px; font-weight: 600; }
+  .badge.title { background: var(--title-badge); color: var(--title-badge-text); }
+  .badge.body { background: var(--body-badge); color: var(--body-badge-text); }
+  mark { background: var(--mark); color: inherit; border-radius: 3px; padding: 0 1px; }
+  .card { cursor: pointer; }
+  .card:hover { border-color: var(--muted); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  dialog#noteDialog {
+    width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 64px);
+    padding: 0; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--card); color: var(--text);
+  }
+  dialog#noteDialog::backdrop { background: rgba(0, 0, 0, .5); }
+  .modal { display: flex; flex-direction: column; max-height: calc(100vh - 64px); }
+  .modal header { padding: 16px 20px 8px; }
+  .modal h2 { margin: 0 0 4px; font-size: 20px; overflow-wrap: anywhere; }
+  .modal .when { font-size: 12px; color: var(--muted); }
+  .modal .content {
+    padding: 8px 20px 16px; overflow-y: auto; white-space: pre-wrap;
+    overflow-wrap: anywhere; line-height: 1.6;
+  }
+  .modal footer {
+    display: flex; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border);
+  }
+  .modal footer .spacer { flex: 1; }
+  .modal footer button {
+    font: inherit; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+    color: var(--text); background: transparent; border: 1px solid var(--border);
+  }
+  .modal footer button:hover { border-color: var(--muted); }
+  .modal footer button.danger:hover { color: #d33; border-color: #d33; }
+  .empty { text-align: center; color: var(--muted); padding: 48px 0; }
+  #sentinel { height: 1px; }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 8px 16px; border-radius: 8px;
+    font-size: 14px; opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Notes</h1>
+
+  <details class="create" id="createBox">
+    <summary id="formTitle">New note</summary>
+    <form id="createForm">
+      <input id="title" placeholder="Title" maxlength="200" required>
+      <textarea id="body" placeholder="Write something..." maxlength="10000"></textarea>
+      <div class="error" id="formError" role="alert"></div>
+      <div class="row">
+        <button type="submit" id="saveBtn">Save note</button>
+        <button type="button" class="secondary" id="cancelBtn" hidden>Cancel</button>
+      </div>
+    </form>
+  </details>
+
+  <div class="sticky">
+    <input class="search" id="q" type="search" placeholder="Search notes (matches anywhere in a word)..."
+           autocomplete="off" autofocus aria-label="Search notes">
+    <div class="status" id="status" aria-live="polite"></div>
+  </div>
+
+  <div id="list"></div>
+  <div id="sentinel"></div>
+</div>
+<dialog id="noteDialog" aria-labelledby="modalTitle">
+  <div class="modal">
+    <header>
+      <h2 id="modalTitle"></h2>
+      <div class="when" id="modalWhen"></div>
+    </header>
+    <div class="content" id="modalBody"></div>
+    <footer>
+      <button type="button" id="modalEdit">Edit</button>
+      <button type="button" class="danger" id="modalDelete">Delete</button>
+      <span class="spacer"></span>
+      <button type="button" id="modalClose">Close</button>
+    </footer>
+  </div>
+</dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+const PAGE = 30;
+const DEBOUNCE_MS = 100;
+
+const $ = (id) => document.getElementById(id);
+const listEl = $("list"), statusEl = $("status"), qEl = $("q"), sentinel = $("sentinel");
+
+let query = "";        // the query the current list was built for
+let terms = [];        // terms returned by the server for highlighting
+let loaded = 0;        // items rendered so far
+let total = 0;
+let loading = false;
+let controller = null; // aborts a stale in-flight request
+let requestId = 0;     // ignores responses that arrive out of order
+
+// ---------- rendering ----------
+function esc(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// Highlight on the raw text and escape each piece, so terms like "amp" or "lt"
+// can never match inside an HTML entity.
+function highlight(text, termList) {
+  if (!termList.length) return esc(text);
+  const re = new RegExp(
+    termList.slice().sort((a, b) => b.length - a.length)
+      .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "gi");
+  let out = "", last = 0, m;
+  while ((m = re.exec(text)) !== null) {
+    out += esc(text.slice(last, m.index)) + "<mark>" + esc(m[0]) + "</mark>";
+    last = m.index + m[0].length;
+  }
+  return out + esc(text.slice(last));
+}
+
+const dateFmt = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+
+function cardHTML(n, termList) {
+  const badges = n.matched_in.map((w) =>
+    `<span class="badge ${w}">${w === "title" ? "Title match" : "Body match"}</span>`).join("");
+  const snippet = n.snippet ? `<p class="snippet">${highlight(n.snippet, termList)}</p>` : "";
+  const edited = n.updated_at ? " (edited)" : "";
+  return `<article class="card" data-id="${n.id}" tabindex="0"><h2>${highlight(n.title, termList)}</h2>${snippet}` +
+    `<div class="meta">${badges}<span>${dateFmt.format(new Date(n.created_at))}${edited}</span>` +
+    `<span class="actions"><button type="button" data-act="edit">Edit</button>` +
+    `<button type="button" class="danger" data-act="delete">Delete</button></span></div></article>`;
+}
+
+function renderStatus() {
+  if (loading && loaded === 0) { statusEl.textContent = "Searching..."; return; }
+  const label = total === 1 ? "note" : "notes";
+  statusEl.textContent = query
+    ? `${total.toLocaleString()} ${label} match "${query}"`
+    : `${total.toLocaleString()} ${label}`;
+}
+
+// ---------- data ----------
+async function load(reset) {
+  if (loading && !reset) return;
+  if (!reset && loaded >= total) return;
+
+  if (controller) controller.abort();
+  controller = new AbortController();
+  const myId = ++requestId;
+  loading = true;
+  if (reset) { listEl.classList.add("loading"); query = qEl.value.trim(); }
+  const offset = reset ? 0 : loaded;
+
+  try {
+    const params = new URLSearchParams({ q: query, limit: PAGE, offset });
+    const res = await fetch("/api/notes?" + params, { signal: controller.signal });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    if (myId !== requestId) return;
+
+    terms = data.terms;
+    total = data.total;
+    const html = data.items.map((n) => cardHTML(n, terms)).join("");
+    if (reset) {
+      listEl.innerHTML = html ||
+        `<div class="empty">${query ? `No notes match "${esc(query)}"` : "No notes yet. Create one above."}</div>`;
+      window.scrollTo({ top: 0 });
+      loaded = data.items.length;
+    } else {
+      listEl.insertAdjacentHTML("beforeend", html);
+      loaded += data.items.length;
+    }
+    loading = false;
+    renderStatus();
+    if (query) statusEl.textContent += ` (${data.took_ms} ms)`;
+  } catch (err) {
+    if (err.name === "AbortError") return;
+    loading = false;
+    statusEl.textContent = "Something went wrong. Try again.";
+  } finally {
+    if (myId === requestId) { loading = false; listEl.classList.remove("loading"); }
+  }
+}
+
+// ---------- events ----------
+let timer;
+qEl.addEventListener("input", () => {
+  clearTimeout(timer);
+  timer = setTimeout(() => load(true), DEBOUNCE_MS);
+});
+
+// Infinite scroll: fetch the next page when the sentinel nears the viewport.
+new IntersectionObserver((entries) => {
+  if (entries[0].isIntersecting && loaded > 0) load(false);
+}, { rootMargin: "600px" }).observe(sentinel);
+
+$("createForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const title = $("title").value.trim();
+  if (!title) { $("formError").textContent = "Title is required."; return; }
+  $("formError").textContent = "";
+  $("saveBtn").disabled = true;
+  try {
+    const res = await fetch(editingId ? "/api/notes/" + editingId : "/api/notes", {
+      method: editingId ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body: $("body").value }),
+    });
+    if (res.status === 404) { showToast("That note no longer exists"); }
+    else if (!res.ok) throw new Error();
+    else showToast(editingId ? "Note updated" : "Note saved");
+    resetForm();
+    load(true);
+  } catch {
+    $("formError").textContent = "Could not save the note.";
+  } finally {
+    $("saveBtn").disabled = false;
+  }
+});
+
+// ---------- edit / delete ----------
+let editingId = null;
+
+function resetForm() {
+  editingId = null;
+  $("createForm").reset();
+  $("formError").textContent = "";
+  $("formTitle").textContent = "New note";
+  $("saveBtn").textContent = "Save note";
+  $("cancelBtn").hidden = true;
+  $("createBox").open = false;
+}
+
+$("cancelBtn").addEventListener("click", resetForm);
+
+async function startEdit(id) {
+  // The list only has snippets, so fetch the full note for editing.
+  const res = await fetch("/api/notes/" + id);
+  if (!res.ok) { showToast("That note no longer exists"); load(true); return; }
+  const n = await res.json();
+  editingId = id;
+  $("title").value = n.title;
+  $("body").value = n.body;
+  $("formTitle").textContent = "Edit note";
+  $("saveBtn").textContent = "Update note";
+  $("cancelBtn").hidden = false;
+  $("createBox").open = true;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  $("title").focus();
+}
+
+async function deleteNote(id) {
+  if (!confirm("Delete this note?")) return false;
+  const res = await fetch("/api/notes/" + id, { method: "DELETE" });
+  if (!res.ok && res.status !== 404) { showToast("Could not delete the note"); return false; }
+  // Remove in place (keeps scroll position) instead of reloading the list.
+  const card = listEl.querySelector(`.card[data-id="${id}"]`);
+  if (card) {
+    card.remove();
+    loaded = Math.max(loaded - 1, 0);
+    total = Math.max(total - 1, 0);
+  }
+  if (editingId === id) resetForm();
+  renderStatus();
+  if (loaded === 0) load(true);
+  showToast("Note deleted");
+  return true;
+}
+
+// ---------- note modal ----------
+const dialog = $("noteDialog");
+let openId = null;      // id of the note shown in the modal
+let openRequest = 0;    // ignores a slow response if the user clicked another note
+
+async function openNote(id) {
+  const myReq = ++openRequest;
+  // Highlight with the terms the user saw when they clicked, even if a newer
+  // search finishes while the note is loading.
+  const clickTerms = terms;
+  const res = await fetch("/api/notes/" + id);
+  if (myReq !== openRequest) return;
+  if (!res.ok) { showToast("That note no longer exists"); load(true); return; }
+  const n = await res.json();
+  openId = id;
+  // Same highlighting as the list, so the modal shows why the note matched.
+  $("modalTitle").innerHTML = highlight(n.title, clickTerms);
+  $("modalBody").innerHTML = n.body ? highlight(n.body, clickTerms) : "<em>(no content)</em>";
+  $("modalWhen").textContent = "Created " + dateFmt.format(new Date(n.created_at)) +
+    (n.updated_at ? " · Edited " + dateFmt.format(new Date(n.updated_at)) : "");
+  if (!dialog.open) dialog.showModal();
+  $("modalBody").scrollTop = 0;
+  const firstMark = $("modalBody").querySelector("mark");
+  if (firstMark) firstMark.scrollIntoView({ block: "center" });
+}
+
+function closeNote() { openRequest++; if (dialog.open) dialog.close(); }
+
+$("modalClose").addEventListener("click", closeNote);
+// Click on the backdrop (the dialog element itself, outside .modal) closes it.
+dialog.addEventListener("click", (e) => { if (e.target === dialog) closeNote(); });
+dialog.addEventListener("close", () => { openId = null; });
+$("modalEdit").addEventListener("click", () => {
+  const id = openId;
+  if (!id) return;
+  closeNote();
+  startEdit(id);
+});
+$("modalDelete").addEventListener("click", async () => {
+  const id = openId;
+  if (!id) return;
+  if (await deleteNote(id)) closeNote();
+});
+
+// True while the user has text selected inside the list (e.g. to copy a snippet),
+// so finishing that selection does not pop the modal open.
+function selectingInList() {
+  const sel = window.getSelection();
+  return !sel.isCollapsed && listEl.contains(sel.anchorNode);
+}
+
+listEl.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act]");
+  const card = e.target.closest(".card");
+  if (!card) return;
+  const id = card.dataset.id;
+  if (btn) {
+    if (btn.dataset.act === "delete") deleteNote(id);
+    else startEdit(id);
+  } else if (!selectingInList()) {
+    openNote(id);
+  }
+});
+
+listEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.classList.contains("card")) openNote(e.target.dataset.id);
+});
+
+function showToast(msg) {
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 1600);
+}
+
+load(true);
+</script>
+</body>
+</html>
